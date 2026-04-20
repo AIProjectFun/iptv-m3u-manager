@@ -78,7 +78,7 @@ iptv-m3u-manager/
 ## Notes
 
 - The app runs entirely on your local machine — no data is sent anywhere except directly to your IPTV provider
-- Downloaded library cache files are stored in the project folder as `.json` files — these contain your credentials and are excluded from git via `.gitignore`
+- Downloaded library cache files are stored in the project folder as `.json` files — these contain your credentials and are excluded from git via `.gitignore` (`*.json` with `!package.json` as an exception so your dependencies aren't affected)
 - The server runs on port **4446** by default
 
 ## License
