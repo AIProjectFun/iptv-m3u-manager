@@ -23,7 +23,7 @@ A lightweight, self-hosted Node.js web app for managing IPTV streams from any **
 ```bash
 # 1. Clone the repo
 git clone https://github.com/AIProjectFun/iptv-m3u-manager.git
-cd iptv-manager
+cd iptv-m3u-manager
 
 # 2. Install dependencies
 npm install
@@ -68,7 +68,7 @@ On the home page, your previously downloaded libraries appear under **Saved Libr
 ## Project Structure
 
 ```
-iptv-manager/
+iptv-m3u-manager/
 ├── server.js          # Express backend — API routes and M3U parsing
 ├── package.json
 └── public/
