@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPTV Manager</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #0d0d12; --surface: #16161f; --card:   #1e1e2a;
+    --border:  #2a2a3a; --accent:  #6c63ff; --accent2:#00d4aa;
+    --danger:  #ff4f5e; --warn:    #f5a623; --text:   #e2e2e9;
+    --muted:   #7a7a95; --hover:   #252535; --sel:    #1a1a3a;
+  }
+  body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; flex-direction:column; }
+
+  /* Header */
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:100; }
+  .logo { font-size:22px; font-weight:700; color:var(--accent); letter-spacing:-0.5px; }
+  .logo span { color:var(--accent2); }
+  .status-pill { margin-left:auto; font-size:12px; padding:4px 12px; border-radius:20px; border:1px solid var(--border); color:var(--muted); }
+  .status-pill.connected { border-color:var(--accent2); color:var(--accent2); }
+
+  /* ── Landing page ── */
+  #landing { max-width:900px; margin:0 auto; width:100%; padding:32px 24px; }
+  .landing-cols { display:grid; grid-template-columns:1fr 1fr; gap:32px; align-items:start; }
+  @media(max-width:680px){ .landing-cols { grid-template-columns:1fr; } }
+
+  .section-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:14px; }
+
+  /* Library cards */
+  #lib-cards-col { display:block; }
+  .lib-card {
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:18px; margin-bottom:12px; transition:border-color 0.15s;
+  }
+  .lib-card:hover { border-color:var(--accent); }
+  .lib-card-site { font-size:15px; font-weight:700; margin-bottom:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lib-card-user { font-size:13px; color:var(--muted); margin-bottom:2px; }
+  .lib-card-date { font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .lib-card-counts { display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+  .lib-card-counts .cnt { font-size:12px; color:var(--muted); }
+  .lib-card-counts .cnt span { color:var(--text); font-weight:600; font-size:14px; }
+  .lib-card-actions { display:flex; gap:8px; }
+
+  /* Connect form */
+  #connect-col {}
+  .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .form-grid .full { grid-column:1/-1; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  input[type=text], input[type=password] {
+    width:100%; background:var(--card); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); padding:10px 14px; font-size:14px; outline:none; transition:border-color 0.2s;
+  }
+  input:focus { border-color:var(--accent); }
+
+  /* Buttons */
+  .btn { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; transition:opacity 0.2s,transform 0.1s; }
+  .btn:active { transform:scale(0.97); }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { opacity:.88; }
+  .btn-success { background:var(--accent2); color:#000; }
+  .btn-success:hover { opacity:.88; }
+  .btn-ghost { background:var(--card); color:var(--text); border:1px solid var(--border); }
+  .btn-ghost:hover { background:var(--hover); }
+  .btn-danger { background:rgba(255,79,94,.12); color:var(--danger); border:1px solid var(--danger); }
+  .btn-danger:hover { background:rgba(255,79,94,.22); }
+  .btn-sm { padding:6px 12px; font-size:12px; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  .error-msg { padding:10px 14px; background:rgba(255,79,94,.12); border:1px solid var(--danger); border-radius:8px; color:var(--danger); font-size:13px; margin-top:10px; }
+
+  /* Account bar */
+  #account-bar { display:none; background:var(--surface); border-bottom:1px solid var(--border); padding:10px 24px; font-size:13px; gap:20px; flex-wrap:wrap; align-items:center; }
+  #account-bar .info-item { color:var(--muted); }
+  #account-bar .info-item span { color:var(--text); font-weight:500; }
+
+  /* Main app */
+  #main { display:none; flex:1; flex-direction:column; overflow:hidden; }
+
+  /* Tabs */
+  .tabs { display:flex; gap:4px; padding:16px 24px 0; background:var(--surface); border-bottom:1px solid var(--border); }
+  .tab-btn { padding:10px 20px; border-radius:8px 8px 0 0; border:1px solid transparent; border-bottom:none; background:transparent; color:var(--muted); font-size:14px; font-weight:500; cursor:pointer; transition:all .15s; }
+  .tab-btn:hover { color:var(--text); background:var(--hover); }
+  .tab-btn.active { background:var(--bg); color:var(--text); border-color:var(--border); font-weight:600; }
+  .tab-btn .badge { display:inline-block; margin-left:7px; background:var(--accent); color:#fff; font-size:11px; font-weight:700; border-radius:20px; padding:1px 7px; vertical-align:middle; }
+
+  /* Global search bar */
+  .global-search-bar { background:var(--card); border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:10px; }
+  .gsearch-wrap { position:relative; flex:1; }
+  .gsearch-wrap input { width:100%; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:9px 36px 9px 14px; font-size:14px; outline:none; transition:border-color .2s; }
+  .gsearch-wrap input:focus,.gsearch-wrap input.active { border-color:var(--accent); background:var(--sel); }
+  .gsearch-clear { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; display:none; padding:2px 4px; border-radius:4px; }
+  .gsearch-clear:hover { color:var(--text); }
+  .gsearch-hint { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .gsearch-hint.loading { color:var(--accent); }
+
+  /* Split layout */
+  .tab-panel { display:none; flex-direction:column; height:calc(100vh - 210px); }
+  .tab-panel.active { display:flex; }
+  .split { display:flex; flex:1; overflow:hidden; }
+
+  /* Sidebar */
+  .sidebar { width:260px; min-width:200px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+  .sidebar-header { padding:12px 16px; border-bottom:1px solid var(--border); font-size:12px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; display:flex; align-items:center; gap:8px; }
+  .sidebar-search { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .sidebar-search input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:6px 10px; font-size:13px; outline:none; }
+  .sidebar-search input:focus { border-color:var(--accent); }
+  /* ── Edit M3U home card ── */
+  .edit-m3u-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 24px; display:flex; align-items:center; gap:20px; margin-top:14px; }
+  .edit-m3u-card:hover { border-color:var(--accent); }
+  .edit-m3u-info .title { font-size:14px; font-weight:600; margin-bottom:3px; }
+  .edit-m3u-info .sub { font-size:13px; color:var(--muted); }
+  .file-btn { position:relative; overflow:hidden; }
+  .file-btn input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+
+  /* ── M3U Editor view ── */
+  #m3u-editor { display:none; flex-direction:column; overflow:hidden; }
+  .ed-toolbar { background:var(--surface); border-bottom:1px solid var(--border); padding:11px 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; position:sticky; top:0; z-index:10; }
+  .ed-toolbar .ed-filename { font-size:13px; font-weight:600; color:var(--muted); }
+  .ed-search-bar { padding:9px 16px; background:var(--card); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .ed-search-bar input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px 14px; font-size:14px; outline:none; }
+  .ed-search-bar input:focus { border-color:var(--accent); }
+  .ed-count { font-size:12px; color:var(--muted); white-space:nowrap; }
+  .ed-save-name { background:var(--card); border:1px solid var(--border); border-radius:7px; color:var(--text); padding:7px 12px; font-size:13px; outline:none; width:210px; }
+  .ed-save-name:focus { border-color:var(--accent); }
+
+  /* Editor rows */
+  .ed-body { flex:1; overflow-y:auto; }
+  .ed-header-row { display:flex; align-items:center; gap:10px; padding:6px 16px; background:var(--surface); border-bottom:1px solid var(--border); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); position:sticky; top:0; z-index:5; }
+  .ed-row { display:flex; align-items:center; gap:10px; padding:6px 16px; border-bottom:1px solid rgba(42,42,58,.45); transition:background .1s; }
+  .ed-row:hover { background:var(--hover); }
+  .ed-row.drag-over { border-top:2px solid var(--accent); background:var(--sel); }
+  .ed-row.dragging { opacity:.35; }
+  .drag-handle { color:var(--border); cursor:grab; font-size:18px; flex-shrink:0; user-select:none; padding:0 2px; line-height:1; transition:color .15s; }
+  .ed-row:hover .drag-handle { color:var(--muted); }
+  .drag-handle:active { cursor:grabbing; }
+  input[type=text].ch-num-inp { width:54px; background:var(--card); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:5px 6px; font-size:13px; text-align:center; outline:none; flex-shrink:0; }
+  input[type=text].ch-num-inp:focus { border-color:var(--accent); }
+  .ch-logo { width:34px; height:34px; border-radius:5px; object-fit:contain; background:var(--card); flex-shrink:0; padding:2px; }
+  .ch-del-btn { flex-shrink:0; background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:4px 7px; border-radius:5px; opacity:0; transition:opacity .15s,color .15s; line-height:1; }
+  .ed-row:hover .ch-del-btn { opacity:1; }
+  .ch-del-btn:hover { color:var(--danger); background:rgba(255,79,94,.12); }
+  input[type=text].ch-name-inp { flex:0 1 480px; max-width:480px; min-width:0; background:transparent; border:1px solid transparent; border-radius:6px; color:var(--text); padding:5px 8px; font-size:13px; outline:none; }
+  input[type=text].ch-name-inp:hover { border-color:var(--border); background:var(--card); }
+  input[type=text].ch-name-inp:focus { border-color:var(--accent); background:var(--card); }
+  .ch-group-lbl { flex:0 0 220px; min-width:0; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* Quick filter bar */
+  .quick-filters { display:flex; gap:6px; padding:7px 10px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .qf-pill {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1px solid var(--border); background:var(--card); color:var(--muted);
+    cursor:pointer; user-select:none; transition:all .15s;
+  }
+  .qf-pill:hover { border-color:var(--accent); color:var(--text); }
+  .qf-pill.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .qf-pill { cursor:pointer; }
+
+  .cat-list { flex:1; overflow-y:auto; padding:6px 0; }
+  .cat-item { display:flex; align-items:center; padding:9px 16px; font-size:13px; cursor:pointer; gap:8px; border-left:3px solid transparent; transition:background .12s; }
+  .cat-item:hover { background:var(--hover); }
+  .cat-item.active { background:var(--sel); border-left-color:var(--accent); color:#fff; }
+  .cat-item .cat-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cat-item input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; }
+
+  /* Stream panel */
+  .stream-panel { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .stream-toolbar { padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; background:var(--card); flex-wrap:wrap; }
+  .toolbar-label { font-size:12px; color:var(--muted); white-space:nowrap; margin-left:auto; }
+  .stream-list { flex:1; overflow-y:auto; padding:6px 0; }
+  .stream-item { display:flex; align-items:center; padding:8px 16px; gap:12px; cursor:pointer; transition:background .1s; border-bottom:1px solid rgba(42,42,58,.5); }
+  .stream-item:hover { background:var(--hover); }
+  .stream-item.checked { background:var(--sel); }
+  .stream-item input[type=checkbox] { accent-color:var(--accent); width:15px; height:15px; flex-shrink:0; cursor:pointer; }
+  .stream-thumb { width:38px; height:38px; border-radius:6px; object-fit:contain; background:var(--card); flex-shrink:0; padding:2px; }
+  .stream-info { flex:1; overflow:hidden; }
+  .stream-name { font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .stream-meta { font-size:11px; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .cat-tag { display:inline-block; background:rgba(108,99,255,.2); color:var(--accent); border-radius:4px; padding:0 5px; font-size:10px; margin-right:4px; }
+
+  .empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted); gap:10px; font-size:14px; }
+  .empty-state .icon { font-size:36px; opacity:.4; }
+  .loading-spinner { display:flex; align-items:center; justify-content:center; padding:40px; color:var(--muted); gap:10px; font-size:14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+
+  /* Bottom bar */
+  #bottom-bar { background:var(--surface); border-top:1px solid var(--border); padding:12px 24px; display:none; align-items:center; gap:16px; position:sticky; bottom:0; }
+  #bottom-bar .sel-count { font-size:14px; color:var(--muted); }
+  #bottom-bar .sel-count span { color:var(--accent2); font-weight:700; font-size:18px; }
+  .clear-btn { font-size:13px; color:var(--danger); background:none; border:none; cursor:pointer; }
+  .clear-btn:hover { text-decoration:underline; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+
+  /* Toast */
+  .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 24px; font-size:14px; z-index:400; opacity:0; transition:all .3s; pointer-events:none; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast.success { border-color:var(--accent2); color:var(--accent2); }
+  .toast.error { border-color:var(--danger); color:var(--danger); }
+
+  /* ── Download modal ── */
+  #dl-modal { display:none; position:fixed; inset:0; background:rgba(13,13,18,.88); z-index:200; align-items:center; justify-content:center; }
+  .dl-box { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:32px; width:480px; max-width:94vw; }
+  .dl-title { font-size:19px; font-weight:700; margin-bottom:6px; }
+  .dl-subtitle { font-size:13px; color:var(--muted); margin-bottom:24px; line-height:1.6; }
+  .dl-row { display:flex; align-items:center; gap:14px; padding:13px 14px; border-radius:10px; background:var(--surface); border:1px solid var(--border); margin-bottom:10px; }
+  .dl-row .dl-icon { font-size:22px; flex-shrink:0; }
+  .dl-row-body { flex:1; }
+  .dl-row-top { display:flex; align-items:center; gap:8px; }
+  .dl-label { font-size:14px; font-weight:600; flex:1; }
+  .dl-status { font-size:13px; color:var(--muted); }
+  .dl-status.running { color:var(--accent); }
+  .dl-status.done { color:var(--accent2); font-weight:600; }
+  .dl-status.error { color:var(--danger); }
+  .dl-bar { width:100%; height:4px; background:var(--border); border-radius:2px; margin-top:7px; display:none; overflow:hidden; }
+  .dl-bar.show { display:block; }
+  .dl-bar-fill { height:100%; width:0%; background:var(--accent); border-radius:2px; transition:width .5s; }
+  .dl-footer { margin-top:24px; display:flex; align-items:center; gap:10px; justify-content:flex-end; }
+  .dl-filename { font-size:11px; color:var(--muted); margin-right:auto; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">IPTV<span>Manager</span></div>
+  <div id="header-status" class="status-pill">Not connected</div>
+</header>
+
+<div id="toast" class="toast"></div>
+
+<!-- ── Download modal ─────────────────────────────────────────────────── -->
+<div id="dl-modal">
+  <div class="dl-box">
+    <div class="dl-title">📥 Downloading Library</div>
+    <div class="dl-subtitle">Fetching all streams from your provider and saving to disk. This only happens once — future sessions load instantly from the saved file.</div>
+
+    <div class="dl-row">
+      <div class="dl-icon">📺</div>
+      <div class="dl-row-body">
+        <div class="dl-row-top"><span class="dl-label">Live TV</span><span class="dl-status" id="dst-live">Waiting…</span></div>
+        <div class="dl-bar" id="dbar-live"><div class="dl-bar-fill" id="dfill-live"></div></div>
+      </div>
+    </div>
+    <div class="dl-row">
+      <div class="dl-icon">🎬</div>
+      <div class="dl-row-body">
+        <div class="dl-row-top"><span class="dl-label">Movies (VOD)</span><span class="dl-status" id="dst-vod">Waiting…</span></div>
+        <div class="dl-bar" id="dbar-vod"><div class="dl-bar-fill" id="dfill-vod"></div></div>
+      </div>
+    </div>
+    <div class="dl-row">
+      <div class="dl-icon">📂</div>
+      <div class="dl-row-body">
+        <div class="dl-row-top"><span class="dl-label">Series</span><span class="dl-status" id="dst-series">Waiting…</span></div>
+        <div class="dl-bar" id="dbar-series"><div class="dl-bar-fill" id="dfill-series"></div></div>
+      </div>
+    </div>
+
+    <div class="dl-footer">
+      <span class="dl-filename" id="dl-filename"></span>
+      <button class="btn btn-success" id="dl-done-btn" onclick="closeDlModal()" style="display:none;">Start Building →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Landing page ───────────────────────────────────────────────────── -->
+<div id="landing">
+  <div class="landing-cols">
+
+    <!-- Saved libraries -->
+    <div id="lib-cards-col">
+      <div class="section-label">Saved Libraries</div>
+      <div id="lib-cards"></div>
+    </div>
+
+    <!-- New connection -->
+    <div id="connect-col">
+      <div class="section-label">New Connection</div>
+      <div class="form-grid">
+        <div class="full">
+          <label>Host URL</label>
+          <input type="text" id="inp-host" placeholder="http://provider.example.com" autocomplete="off">
+        </div>
+        <div>
+          <label>Username</label>
+          <input type="text" id="inp-user" autocomplete="off">
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="password" id="inp-pass" autocomplete="off">
+        </div>
+        <div class="full" style="margin-top:4px;">
+          <button class="btn btn-primary" onclick="connect()" id="connect-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            Connect &amp; Download
+          </button>
+        </div>
+        <div class="full" id="connect-error" style="display:none"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Edit M3U section -->
+  <div style="margin-top:28px;border-top:1px solid var(--border);padding-top:24px;">
+    <div class="section-label">Edit M3U Playlist</div>
+    <div class="edit-m3u-card">
+      <div style="font-size:28px;flex-shrink:0;">✏️</div>
+      <div class="edit-m3u-info" style="flex:1;">
+        <div class="title">Open &amp; Edit a Playlist File</div>
+        <div class="sub">Rename channels, assign numbers, reorder, and save as a new .m3u</div>
+      </div>
+      <div class="btn btn-ghost file-btn" style="flex-shrink:0;">
+        📂 Browse for .m3u…
+        <input type="file" accept=".m3u,.m3u8" onchange="loadM3UFile(this)">
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── M3U Editor view ───────────────────────────────────────────────────── -->
+<div id="m3u-editor">
+
+  <div class="ed-toolbar">
+    <button class="btn btn-ghost btn-sm" onclick="closeEditor()">← Back</button>
+    <span class="ed-filename" id="editor-filename"></span>
+    <div style="flex:1;"></div>
+    <button class="btn btn-ghost btn-sm" onclick="autoNumber()" title="Assign sequential numbers to all channels">⟳ Auto-number</button>
+    <input class="ed-save-name" type="text" id="save-filename" placeholder="edited-playlist.m3u">
+    <button class="btn btn-success" onclick="saveM3U()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Save M3U
+    </button>
+  </div>
+
+  <div class="ed-search-bar">
+    <input type="text" id="editor-search-inp" placeholder="🔍  Search by name or group…" oninput="filterEditor(this.value)" autocomplete="off">
+    <span class="ed-count" id="editor-count"></span>
+    <button class="btn btn-ghost btn-sm" onclick="clearEditorSearch()">Clear</button>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;padding:5px 16px;background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);">
+    <span style="width:20px;flex-shrink:0;"></span>
+    <span style="width:54px;flex-shrink:0;text-align:center;">#</span>
+    <span style="width:34px;flex-shrink:0;"></span>
+    <span style="flex:0 1 480px;max-width:480px;min-width:0;">Channel Name</span>
+    <span style="flex:0 0 220px;min-width:0;">Group</span>
+  </div>
+
+  <div class="ed-body" id="editor-body"></div>
+</div>
+
+<!-- ── Account bar ────────────────────────────────────────────────────── -->
+<div id="account-bar">
+  <div class="info-item">Connected: <span id="acc-host">—</span></div>
+  <div class="info-item">User: <span id="acc-user">—</span></div>
+  <div class="info-item">Expires: <span id="acc-expiry">—</span></div>
+  <button class="btn btn-ghost btn-sm" onclick="goHome()" style="margin-left:auto;">← Home</button>
+</div>
+
+<!-- ── Main app ───────────────────────────────────────────────────────── -->
+<div id="main">
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-live"   onclick="switchTab('live')">📺 Live TV</button>
+    <button class="tab-btn"        id="tab-vod"    onclick="switchTab('vod')">🎬 Movies (VOD)</button>
+    <button class="tab-btn"        id="tab-series" onclick="switchTab('series')">📂 Series</button>
+  </div>
+
+  <!-- Live TV -->
+  <div class="tab-panel active" id="panel-live">
+    <div class="global-search-bar">
+      <div class="gsearch-wrap">
+        <input type="text" id="gs-live" placeholder="🔍  Search ALL channels across every category…" oninput="globalSearch('live',this.value)" autocomplete="off">
+        <button class="gsearch-clear" id="gs-live-clear" onclick="clearGlobalSearch('live')">✕</button>
+      </div>
+      <span class="gsearch-hint" id="gs-live-hint">type to search everything</span>
+    </div>
+    <div class="split">
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span>Categories</span>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;">
+            <input type="checkbox" onchange="toggleAllCategories('live',this.checked)" style="accent-color:var(--accent)"> All
+          </label>
+        </div>
+        <div class="sidebar-search"><input type="text" id="live-cat-search" placeholder="Filter categories…" oninput="filterCats('live',this.value)"></div>
+        <div class="quick-filters">
+          <button class="qf-pill" id="qf-live-us" onclick="toggleQuickFilter('live','us')">US</button>
+        </div>
+        <div class="cat-list" id="live-cats"><div class="loading-spinner"><div class="spinner"></div> Loading…</div></div>
+      </div>
+      <div class="stream-panel">
+        <div class="stream-toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllVisible('live')">✓ All</button>
+          <button class="btn btn-ghost btn-sm" onclick="deselectAllVisible('live')">✕ None</button>
+          <span class="toolbar-label" id="live-visible-count"></span>
+        </div>
+        <div class="stream-list" id="live-streams">
+          <div class="empty-state"><div class="icon">📺</div><div>Select a category — or search above</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOD -->
+  <div class="tab-panel" id="panel-vod">
+    <div class="global-search-bar">
+      <div class="gsearch-wrap">
+        <input type="text" id="gs-vod" placeholder="🔍  Search ALL movies across every category…" oninput="globalSearch('vod',this.value)" autocomplete="off">
+        <button class="gsearch-clear" id="gs-vod-clear" onclick="clearGlobalSearch('vod')">✕</button>
+      </div>
+      <span class="gsearch-hint" id="gs-vod-hint">type to search everything</span>
+    </div>
+    <div class="split">
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span>Categories</span>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;">
+            <input type="checkbox" onchange="toggleAllCategories('vod',this.checked)" style="accent-color:var(--accent)"> All
+          </label>
+        </div>
+        <div class="sidebar-search"><input type="text" id="vod-cat-search" placeholder="Filter categories…" oninput="filterCats('vod',this.value)"></div>
+        <div class="quick-filters">
+          <button class="qf-pill" id="qf-vod-en" onclick="toggleQuickFilter('vod','en')">English</button>
+        </div>
+        <div class="cat-list" id="vod-cats"><div class="loading-spinner"><div class="spinner"></div> Loading…</div></div>
+      </div>
+      <div class="stream-panel">
+        <div class="stream-toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllVisible('vod')">✓ All</button>
+          <button class="btn btn-ghost btn-sm" onclick="deselectAllVisible('vod')">✕ None</button>
+          <span class="toolbar-label" id="vod-visible-count"></span>
+        </div>
+        <div class="stream-list" id="vod-streams">
+          <div class="empty-state"><div class="icon">🎬</div><div>Select a category — or search above</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Series -->
+  <div class="tab-panel" id="panel-series">
+    <div class="global-search-bar">
+      <div class="gsearch-wrap">
+        <input type="text" id="gs-series" placeholder="🔍  Search ALL series across every category…" oninput="globalSearch('series',this.value)" autocomplete="off">
+        <button class="gsearch-clear" id="gs-series-clear" onclick="clearGlobalSearch('series')">✕</button>
+      </div>
+      <span class="gsearch-hint" id="gs-series-hint">type to search everything</span>
+    </div>
+    <div class="split">
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <span>Categories</span>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:400;text-transform:none;letter-spacing:0;">
+            <input type="checkbox" onchange="toggleAllCategories('series',this.checked)" style="accent-color:var(--accent)"> All
+          </label>
+        </div>
+        <div class="sidebar-search"><input type="text" placeholder="Filter categories…" oninput="filterCats('series',this.value)"></div>
+        <div class="cat-list" id="series-cats"><div class="loading-spinner"><div class="spinner"></div> Loading…</div></div>
+      </div>
+      <div class="stream-panel">
+        <div class="stream-toolbar">
+          <button class="btn btn-ghost btn-sm" onclick="selectAllVisible('series')">✓ All</button>
+          <button class="btn btn-ghost btn-sm" onclick="deselectAllVisible('series')">✕ None</button>
+          <span class="toolbar-label" id="series-visible-count"></span>
+        </div>
+        <div class="stream-list" id="series-streams">
+          <div class="empty-state"><div class="icon">📂</div><div>Select a category — or search above</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottom-bar">
+  <div class="sel-count"><span id="sel-total">0</span> streams selected</div>
+  <button class="clear-btn" onclick="clearAll()">Clear all</button>
+  <div style="flex:1"></div>
+  <button class="btn btn-success" onclick="generateM3U()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Download M3U
+  </button>
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────
+//  State
+// ──────────────────────────────────────────────────────
+let conn = null; // { host, username, password }
+
+const selected      = new Map();
+const catData       = { live: new Map(), vod: new Map(), series: new Map() };
+const activeCat     = { live: null, vod: null, series: null };
+const streamCache   = { live: new Map(), vod: new Map(), series: new Map() };
+const visibleStreams = { live: [], vod: [], series: [] };
+const allStreams     = { live: null, vod: null, series: null };
+const searchResults = { live: [], vod: [], series: [] };
+const gsMode        = { live: false, vod: false, series: false };
+let   gsTimers      = { live: null, vod: null, series: null };
+
+// Quick-filter state: which prefix filter is active per tab
+// value is the filter key ('us', 'en') or null
+const quickFilters  = { live: null, vod: null, series: null };
+
+// Prefix rules per tab+filter key
+const QF_RULES = {
+  live: { us: s => s.toUpperCase().startsWith('US|') },
+  vod:  { en: s => s.toUpperCase().startsWith('EN') },
+};
+
+// ──────────────────────────────────────────────────────
+//  Helpers
+// ──────────────────────────────────────────────────────
+const qs = s => document.querySelector(s);
+function showToast(msg, type='success') {
+  const t = qs('#toast'); t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+function params() {
+  return `host=${encodeURIComponent(conn.host)}&username=${encodeURIComponent(conn.username)}&password=${encodeURIComponent(conn.password)}`;
+}
+function formatDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleDateString();
+}
+function updateBottomBar() {
+  const n = selected.size;
+  qs('#sel-total').textContent = n;
+  qs('#bottom-bar').style.display = n > 0 ? 'flex' : 'none';
+}
+function updateTabBadge(type) {
+  let cnt = 0; for (const [k] of selected) if (k.startsWith(type+'_')) cnt++;
+  const tab = qs(`#tab-${type}`); let b = tab.querySelector('.badge');
+  if (cnt > 0) { if (!b) { b = document.createElement('span'); b.className = 'badge'; tab.appendChild(b); } b.textContent = cnt; }
+  else if (b) b.remove();
+}
+
+// ──────────────────────────────────────────────────────
+//  Landing page — saved library cards
+// ──────────────────────────────────────────────────────
+async function loadLibraryCards() {
+  const grid = qs('#lib-cards');
+
+  // Show spinner immediately while fetching
+  grid.innerHTML = '<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;padding:4px 0;"><div class="spinner"></div> Loading…</div>';
+
+  const res  = await fetch('/api/library/list');
+  const libs = await res.json();
+
+  if (!libs.length) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:4px 0;">None</div>';
+    return;
+  }
+
+  grid.innerHTML = libs.map(lib => {
+
+    const date = lib.downloaded_at ? new Date(lib.downloaded_at).toLocaleString() : '—';
+    const c    = lib.counts || {};
+    const total = (c.live||0) + (c.vod||0) + (c.series||0);
+    return `<div class="lib-card">
+      <div class="lib-card-site">${lib.sitename || lib.host}</div>
+      <div class="lib-card-user">${lib.username}</div>
+      <div class="lib-card-date">${date}</div>
+      <div class="lib-card-counts">
+        <div class="cnt">📺 <span>${(c.live||0).toLocaleString()}</span></div>
+        <div class="cnt">🎬 <span>${(c.vod||0).toLocaleString()}</span></div>
+        <div class="cnt">📂 <span>${(c.series||0).toLocaleString()}</span></div>
+        <div class="cnt" style="margin-left:auto;">Total: <span>${total.toLocaleString()}</span></div>
+      </div>
+      <div class="lib-card-actions">
+        <button class="btn btn-success btn-sm" onclick="openSavedLibrary('${lib.filename}', this)">Open Library</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteLibrary('${lib.filename}',this)">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteLibrary(filename, btn) {
+  if (!confirm('Delete this saved library?')) return;
+  btn.disabled = true;
+  await fetch(`/api/library/file?filename=${encodeURIComponent(filename)}`, { method: 'DELETE' });
+  loadLibraryCards();
+  showToast('Library deleted', 'success');
+}
+
+async function openSavedLibrary(filename, btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:12px;height:12px;border-width:2px;"></div> Loading…'; }
+  const res = await fetch(`/api/library/open?filename=${encodeURIComponent(filename)}`);
+  if (!res.ok) {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Open Library'; }
+    showToast('Could not open library file', 'error'); return;
+  }
+  const lib = await res.json();
+
+  // Set connection from saved file
+  conn = { host: lib.host, username: lib.username, password: lib.password };
+
+  // Populate catData from saved categories
+  const cats = lib.categories || {};
+  ['live','vod','series'].forEach(type => {
+    const map = catData[type]; map.clear();
+    (cats[type] || []).forEach(c => map.set(String(c.category_id), { name: c.category_name, streams: null }));
+  });
+
+  // Populate allStreams from saved data
+  ['live','vod','series'].forEach(type => {
+    const raw = lib[type] || [];
+    const selType = type === 'series' ? 'series' : type;
+    allStreams[type] = raw.map(s => {
+      const catName = catData[type].get(String(s.category_id||''))?.name || 'Uncategorized';
+      return { ...s, _selType: selType, stream_id: s.stream_id || s.series_id, category: catName };
+    });
+    const hint = qs(`#gs-${type}-hint`);
+    if (hint) hint.textContent = `${allStreams[type].length.toLocaleString()} in library`;
+  });
+
+  // Render category sidebars
+  ['live','vod','series'].forEach(type => renderCats(type));
+
+  // Update header
+  qs('#acc-host').textContent    = lib.sitename || lib.host;
+  qs('#acc-user').textContent    = lib.username;
+  qs('#acc-expiry').textContent  = lib.downloaded_at ? new Date(lib.downloaded_at).toLocaleDateString() : '—';
+  qs('#header-status').textContent = lib.username;
+  qs('#header-status').classList.add('connected');
+
+  showMainApp();
+  showToast(`✅ Loaded ${lib.filename}`, 'success');
+}
+
+function showMainApp() {
+  qs('#landing').style.display      = 'none';
+  qs('#account-bar').style.display  = 'flex';
+  qs('#main').style.display         = 'flex';
+  qs('#main').style.flexDirection   = 'column';
+}
+
+function goHome() {
+  qs('#landing').style.display      = 'block';
+  qs('#account-bar').style.display  = 'none';
+  qs('#main').style.display         = 'none';
+  qs('#bottom-bar').style.display   = 'none';
+  qs('#header-status').textContent  = 'Not connected';
+  qs('#header-status').classList.remove('connected');
+  selected.clear();
+  ['live','vod','series'].forEach(t => {
+    allStreams[t]    = null;
+    searchResults[t] = [];
+    gsMode[t]       = false;
+    activeCat[t]    = null;
+    streamCache[t].clear();
+    catData[t].clear();
+  });
+  loadLibraryCards();
+}
+
+// ──────────────────────────────────────────────────────
+//  Connect → auto-download
+// ──────────────────────────────────────────────────────
+async function connect() {
+  const host     = qs('#inp-host').value.trim();
+  const username = qs('#inp-user').value.trim();
+  const password = qs('#inp-pass').value.trim();
+  const errEl    = qs('#connect-error');
+  errEl.style.display = 'none';
+
+  if (!host || !username || !password) {
+    errEl.innerHTML = '<div class="error-msg">Please fill in all fields.</div>';
+    errEl.style.display = 'block'; return;
+  }
+
+  qs('#connect-btn').disabled = true;
+  qs('#connect-btn').textContent = 'Connecting…';
+
+  try {
+    const res  = await fetch('/api/connect', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({host,username,password}) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Connection failed');
+
+    conn = { host, username, password };
+
+    qs('#acc-host').textContent   = host.replace(/^https?:\/\//,'');
+    qs('#acc-user').textContent   = username;
+    qs('#acc-expiry').textContent = formatDate((data.user_info||{}).exp_date);
+    qs('#header-status').textContent = username;
+    qs('#header-status').classList.add('connected');
+
+    // Load categories in background (needed for sidebar and catData for cache)
+    const catPromise = Promise.all([loadCategories('live'), loadCategories('vod'), loadCategories('series')]);
+
+    // Open download modal immediately and auto-start
+    openDlModal();
+    await catPromise;
+    await runAutoDownload();
+
+  } catch (err) {
+    errEl.innerHTML = `<div class="error-msg">❌ ${err.message}</div>`;
+    errEl.style.display = 'block';
+  } finally {
+    qs('#connect-btn').disabled = false;
+    qs('#connect-btn').textContent = 'Connect & Download';
+  }
+}
+
+// ──────────────────────────────────────────────────────
+//  Download modal
+// ──────────────────────────────────────────────────────
+function openDlModal() {
+  // Reset UI
+  ['live','vod','series'].forEach(t => {
+    setDlStatus(t, 'Waiting…', '');
+    setDlBar(t, false);
+  });
+  qs('#dl-done-btn').style.display = 'none';
+  qs('#dl-filename').textContent   = '';
+  qs('#dl-modal').style.display    = 'flex';
+}
+
+function closeDlModal() {
+  qs('#dl-modal').style.display = 'none';
+  showMainApp();
+  loadLibraryCards(); // refresh card list on home
+}
+
+function setDlStatus(type, msg, state) {
+  const el = qs(`#dst-${type}`);
+  el.textContent = msg; el.className = `dl-status ${state}`;
+}
+
+function setDlBar(type, show, pct = 30) {
+  const bar  = qs(`#dbar-${type}`);
+  const fill = qs(`#dfill-${type}`);
+  bar.classList.toggle('show', show);
+  if (show) fill.style.width = pct + '%';
+}
+
+async function runAutoDownload() {
+  // Step 1: create the library file (also fetches categories server-side)
+  let filename;
+  try {
+    const r = await fetch('/api/library/start', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({host:conn.host,username:conn.username,password:conn.password}) });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error);
+    filename = d.filename;
+    qs('#dl-filename').textContent = filename;
+  } catch (err) {
+    ['live','vod','series'].forEach(t => setDlStatus(t, '✗ Could not start', 'error'));
+    qs('#dl-done-btn').style.display = 'inline-flex';
+    return;
+  }
+
+  // Step 2: fetch each type
+  for (const type of ['live','vod','series']) {
+    setDlStatus(type, 'Downloading…', 'running');
+    setDlBar(type, true, 20);
+
+    // Animate bar
+    let pct = 20;
+    const ticker = setInterval(() => {
+      pct = Math.min(pct + 4, 88);
+      qs(`#dfill-${type}`).style.width = pct + '%';
+    }, 700);
+
+    try {
+      const r = await fetch('/api/library/fetch', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({host:conn.host,username:conn.username,password:conn.password,type,filename}) });
+      const d = await r.json();
+      clearInterval(ticker);
+      if (!d.success) throw new Error(d.error);
+
+      qs(`#dfill-${type}`).style.width = '100%';
+      setDlStatus(type, `✓ ${d.count.toLocaleString()} streams`, 'done');
+      setTimeout(() => setDlBar(type, false), 600);
+
+      // Load into memory for immediate use
+      ingestLibraryType(type, filename);
+
+    } catch (err) {
+      clearInterval(ticker);
+      setDlBar(type, false);
+      setDlStatus(type, `✗ ${err.message}`, 'error');
+    }
+  }
+
+  qs('#dl-done-btn').style.display = 'inline-flex';
+}
+
+async function ingestLibraryType(type, filename) {
+  try {
+    const res  = await fetch(`/api/library/${type}?${params()}`);
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+    const selType = type === 'series' ? 'series' : type;
+    allStreams[type] = data.map(s => {
+      const catName = catData[type].get(String(s.category_id||''))?.name || 'Uncategorized';
+      return { ...s, _selType: selType, stream_id: s.stream_id || s.series_id, category: catName };
+    });
+    const hint = qs(`#gs-${type}-hint`);
+    if (hint) hint.textContent = `${allStreams[type].length.toLocaleString()} in library`;
+  } catch { /* silent */ }
+}
+
+// ──────────────────────────────────────────────────────
+//  Categories
+// ──────────────────────────────────────────────────────
+async function loadCategories(type) {
+  const ep = type === 'series' ? 'series/categories' : `${type}/categories`;
+  try {
+    const res  = await fetch(`/api/${ep}?${params()}`);
+    const cats = await res.json();
+    if (!Array.isArray(cats)) return;
+    const map = catData[type]; map.clear();
+    cats.forEach(c => map.set(String(c.category_id), { name: c.category_name, streams: null }));
+    renderCats(type);
+  } catch { /* silent */ }
+}
+
+function renderCats(type, filter = '') {
+  const map   = catData[type];
+  const el    = qs(`#${type}-cats`);
+  const lower = filter.toLowerCase();
+  const qf    = quickFilters[type] ? QF_RULES[type]?.[quickFilters[type]] : null;
+
+  const entries = [...map.entries()].filter(([, c]) => {
+    if (lower && !c.name.toLowerCase().includes(lower)) return false;
+    if (qf && !qf(c.name)) return false;
+    return true;
+  });
+
+  if (!entries.length) {
+    el.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;">No categories match</div>';
+    return;
+  }
+
+  el.innerHTML = entries.map(([id, cat]) => {
+    const isActive = activeCat[type] === id;
+    const cached   = streamCache[type].get(id);
+    let checked = false, ind = false;
+    if (cached?.length) {
+      const sc = cached.filter(s => selected.has(`${s._selType}_${s.stream_id}`)).length;
+      checked = sc === cached.length; ind = sc > 0 && sc < cached.length;
+    }
+    return `<div class="cat-item ${isActive?'active':''}" data-id="${id}" onclick="loadStreams('${type}','${id}',event)">
+      <input type="checkbox" ${checked?'checked':''} data-ind="${ind}" onclick="toggleCatSelect('${type}','${id}',this,event)" title="Select all in category">
+      <span class="cat-name">${cat.name}</span>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('input[data-ind="true"]').forEach(cb => cb.indeterminate = true);
+}
+
+function filterCats(type, val) { renderCats(type, val); }
+
+function toggleQuickFilter(type, key) {
+  // Toggle: if already active, turn off; otherwise activate
+  quickFilters[type] = quickFilters[type] === key ? null : key;
+
+  // Update pill appearance
+  const rules = QF_RULES[type] || {};
+  Object.keys(rules).forEach(k => {
+    const pill = qs(`#qf-${type}-${k}`);
+    if (pill) pill.classList.toggle('active', quickFilters[type] === k);
+  });
+
+  // Re-render using whatever text is in the search box
+  const searchEl = qs(`#${type}-cat-search`);
+  renderCats(type, searchEl ? searchEl.value : '');
+}
+
+async function toggleCatSelect(type, catId, cb, event) {
+  event.stopPropagation();
+  if (!streamCache[type].has(catId)) await fetchStreams(type, catId);
+  const streams = streamCache[type].get(catId) || [];
+  streams.forEach(s => { const k = `${s._selType}_${s.stream_id}`; if (cb.checked) selected.set(k,s); else selected.delete(k); });
+  updateBottomBar(); updateTabBadge(type);
+  if (activeCat[type] === catId) renderStreamList(type);
+  renderCats(type);
+}
+
+async function toggleAllCategories(type, checked) {
+  if (gsMode[type]) { showToast('Clear search first to use category select-all', 'error'); return; }
+  for (const [id] of catData[type]) {
+    if (!streamCache[type].has(id)) await fetchStreams(type, id);
+    (streamCache[type].get(id)||[]).forEach(s => { const k=`${s._selType}_${s.stream_id}`; if(checked) selected.set(k,s); else selected.delete(k); });
+  }
+  updateBottomBar(); updateTabBadge(type);
+  if (activeCat[type]) renderStreamList(type);
+  renderCats(type);
+}
+
+// ──────────────────────────────────────────────────────
+//  Streams (category mode)
+// ──────────────────────────────────────────────────────
+async function loadStreams(type, catId, event) {
+  if (event?.target.type === 'checkbox') return;
+  if (gsMode[type]) clearGlobalSearch(type);
+  activeCat[type] = catId; renderCats(type);
+  if (streamCache[type].has(catId)) { renderStreamList(type); return; }
+  qs(`#${type}-streams`).innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading…</div>';
+  await fetchStreams(type, catId); renderStreamList(type);
+}
+
+async function fetchStreams(type, catId) {
+  try {
+    const ep    = type === 'series' ? 'series/list' : `${type}/streams`;
+    const res   = await fetch(`/api/${ep}?${params()}&category_id=${catId}`);
+    const data  = await res.json();
+    const catName = catData[type].get(catId)?.name || 'Unknown';
+    streamCache[type].set(catId, (Array.isArray(data)?data:[]).map(s => ({
+      ...s, _selType: type==='series'?'series':type,
+      stream_id: s.stream_id||s.series_id, category: catName
+    })));
+  } catch { streamCache[type].set(catId, []); }
+}
+
+function renderStreamList(type) {
+  if (gsMode[type]) return;
+  const catId   = activeCat[type];
+  const streams = streamCache[type].get(catId) || [];
+  visibleStreams[type] = streams;
+  qs(`#${type}-visible-count`).textContent = `${streams.length} shown`;
+  const icon = type==='live'?'📺':type==='vod'?'🎬':'📂';
+  const el   = qs(`#${type}-streams`);
+  if (!streams.length) { el.innerHTML='<div class="empty-state"><div class="icon">🔍</div><div>No streams in this category</div></div>'; return; }
+  el.innerHTML = streams.map(s => {
+    const key = `${s._selType}_${s.stream_id}`; const checked = selected.has(key);
+    const thumb = s.stream_icon||s.cover||'';
+    const meta  = type==='live'?(s.epg_channel_id?`EPG: ${s.epg_channel_id}`:''):type==='vod'?[s.rating?`⭐ ${s.rating}`:'',s.year||''].filter(Boolean).join(' · '):(s.cast||'').slice(0,50);
+    return `<div class="stream-item ${checked?'checked':''}" onclick="toggleStream('${type}','${s.stream_id}',this)">
+      <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();toggleStream('${type}','${s.stream_id}',this.parentElement)">
+      <img class="stream-thumb" src="${thumb}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2238%22 height=%2238%22><rect width=%2238%22 height=%2238%22 fill=%22%231e1e2a%22 rx=%226%22/><text x=%2219%22 y=%2226%22 text-anchor=%22middle%22 font-size=%2218%22>${icon}</text></svg>'">
+      <div class="stream-info"><div class="stream-name">${s.name||'Unknown'}</div>${meta?`<div class="stream-meta">${meta}</div>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────────────────────
+//  Global search
+// ──────────────────────────────────────────────────────
+function globalSearch(type, val) {
+  const clearBtn = qs(`#gs-${type}-clear`);
+  clearBtn.style.display = val ? 'block' : 'none';
+  qs(`#gs-${type}`).classList.toggle('active', !!val);
+  clearTimeout(gsTimers[type]);
+  if (!val) { clearGlobalSearch(type); return; }
+
+  gsTimers[type] = setTimeout(async () => {
+    gsMode[type] = true;
+    const hint = qs(`#gs-${type}-hint`);
+
+    if (allStreams[type] === null) {
+      hint.textContent = 'Loading all streams…'; hint.classList.add('loading');
+      qs(`#${type}-streams`).innerHTML = '<div class="loading-spinner"><div class="spinner"></div> Loading all streams…</div>';
+      await ensureAllStreams(type);
+    }
+
+    const lower   = val.toLowerCase();
+    const results = (allStreams[type]||[]).filter(s => (s.name||'').toLowerCase().includes(lower));
+    searchResults[type] = results;
+    hint.textContent = `${results.length.toLocaleString()} result${results.length!==1?'s':''} for "${val}"`;
+    hint.classList.remove('loading');
+    qs(`#${type}-visible-count`).textContent = `${results.length} shown`;
+    renderSearchResults(type, results);
+  }, 280);
+}
+
+async function ensureAllStreams(type) {
+  if (allStreams[type] !== null) return;
+  try {
+    const ep  = type === 'series' ? 'series/list' : `${type}/streams`;
+    const res = await fetch(`/api/${ep}?${params()}`);
+    const data = await res.json();
+    const selType = type === 'series' ? 'series' : type;
+    allStreams[type] = (Array.isArray(data)?data:[]).map(s => {
+      const catName = catData[type].get(String(s.category_id||''))?.name || 'Uncategorized';
+      return { ...s, _selType: selType, stream_id: s.stream_id||s.series_id, category: catName };
+    });
+    const hint = qs(`#gs-${type}-hint`);
+    if (hint) { hint.textContent = `${allStreams[type].length.toLocaleString()} in library`; hint.classList.remove('loading'); }
+  } catch { allStreams[type] = []; }
+}
+
+function renderSearchResults(type, results) {
+  const el   = qs(`#${type}-streams`);
+  const icon = type==='live'?'📺':type==='vod'?'🎬':'📂';
+  if (!results.length) { el.innerHTML='<div class="empty-state"><div class="icon">🔍</div><div>No results found</div></div>'; return; }
+  el.innerHTML = results.map(s => {
+    const key = `${s._selType}_${s.stream_id}`; const checked = selected.has(key);
+    const thumb = s.stream_icon||s.cover||'';
+    return `<div class="stream-item ${checked?'checked':''}" onclick="toggleStream('${type}','${s.stream_id}',this)">
+      <input type="checkbox" ${checked?'checked':''} onclick="event.stopPropagation();toggleStream('${type}','${s.stream_id}',this.parentElement)">
+      <img class="stream-thumb" src="${thumb}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2238%22 height=%2238%22><rect width=%2238%22 height=%2238%22 fill=%22%231e1e2a%22 rx=%226%22/><text x=%2219%22 y=%2226%22 text-anchor=%22middle%22 font-size=%2218%22>${icon}</text></svg>'">
+      <div class="stream-info"><div class="stream-name">${s.name||'Unknown'}</div><div class="stream-meta"><span class="cat-tag">${s.category||'Uncategorized'}</span></div></div>
+    </div>`;
+  }).join('');
+}
+
+function clearGlobalSearch(type) {
+  gsMode[type] = false; searchResults[type] = [];
+  const inp = qs(`#gs-${type}`); inp.value = ''; inp.classList.remove('active');
+  qs(`#gs-${type}-clear`).style.display = 'none';
+  const hint = qs(`#gs-${type}-hint`);
+  hint.textContent = allStreams[type] ? `${allStreams[type].length.toLocaleString()} in library` : 'type to search everything';
+  hint.classList.remove('loading');
+  if (activeCat[type]) renderStreamList(type);
+  else qs(`#${type}-streams`).innerHTML = `<div class="empty-state"><div class="icon">${type==='live'?'📺':type==='vod'?'🎬':'📂'}</div><div>Select a category — or search above</div></div>`;
+  qs(`#${type}-visible-count`).textContent = '';
+}
+
+// ──────────────────────────────────────────────────────
+//  Toggle individual stream
+// ──────────────────────────────────────────────────────
+function toggleStream(type, streamId, rowEl) {
+  let stream = null;
+  if (gsMode[type]) stream = searchResults[type].find(s => String(s.stream_id)===String(streamId));
+  else stream = (streamCache[type].get(activeCat[type])||[]).find(s => String(s.stream_id)===String(streamId));
+  if (!stream && allStreams[type]) stream = allStreams[type].find(s => String(s.stream_id)===String(streamId));
+  if (!stream) return;
+
+  const key = `${stream._selType}_${streamId}`;
+  const now = !selected.has(key);
+  if (now) selected.set(key, stream); else selected.delete(key);
+  rowEl.classList.toggle('checked', now);
+  const cb = rowEl.querySelector('input[type=checkbox]'); if (cb) cb.checked = now;
+  updateBottomBar(); updateTabBadge(type);
+  if (!gsMode[type]) updateCatCheckbox(type, activeCat[type]);
+}
+
+function updateCatCheckbox(type, catId) {
+  if (!catId) return;
+  const cached = streamCache[type].get(catId); if (!cached) return;
+  const sc  = cached.filter(s => selected.has(`${s._selType}_${s.stream_id}`)).length;
+  const cel = qs(`#${type}-cats .cat-item[data-id="${catId}"] input[type=checkbox]`);
+  if (cel) { cel.checked = sc===cached.length && cached.length>0; cel.indeterminate = sc>0 && sc<cached.length; }
+}
+
+function selectAllVisible(type) {
+  if (gsMode[type]) {
+    searchResults[type].forEach(s => selected.set(`${s._selType}_${s.stream_id}`, s));
+    renderSearchResults(type, searchResults[type]);
+  } else {
+    visibleStreams[type].forEach(s => selected.set(`${s._selType}_${s.stream_id}`, s));
+    renderStreamList(type); updateCatCheckbox(type, activeCat[type]);
+  }
+  updateBottomBar(); updateTabBadge(type);
+}
+
+function deselectAllVisible(type) {
+  if (gsMode[type]) {
+    searchResults[type].forEach(s => selected.delete(`${s._selType}_${s.stream_id}`));
+    renderSearchResults(type, searchResults[type]);
+  } else {
+    visibleStreams[type].forEach(s => selected.delete(`${s._selType}_${s.stream_id}`));
+    renderStreamList(type); updateCatCheckbox(type, activeCat[type]);
+  }
+  updateBottomBar(); updateTabBadge(type);
+}
+
+function clearAll() {
+  selected.clear();
+  ['live','vod','series'].forEach(t => {
+    updateTabBadge(t);
+    if (gsMode[t]) renderSearchResults(t, searchResults[t]);
+    else if (activeCat[t]) renderStreamList(t);
+    renderCats(t);
+  });
+  updateBottomBar();
+}
+
+// ──────────────────────────────────────────────────────
+//  Tabs
+// ──────────────────────────────────────────────────────
+function switchTab(type) {
+  ['live','vod','series'].forEach(t => {
+    qs(`#tab-${t}`).classList.toggle('active', t===type);
+    qs(`#panel-${t}`).classList.toggle('active', t===type);
+  });
+}
+
+// ──────────────────────────────────────────────────────
+//  Generate M3U
+// ──────────────────────────────────────────────────────
+async function generateM3U() {
+  if (!selected.size) return;
+  const streams = [...selected.values()].map(s => ({
+    type: s._selType, name: s.name, stream_id: s.stream_id,
+    stream_icon: s.stream_icon||s.cover||'', category: s.category||'Uncategorized',
+    epg_channel_id: s.epg_channel_id||'',
+    container_extension: s.container_extension||(s._selType==='vod'?'mp4':'mkv')
+  }));
+  try {
+    const res = await fetch('/api/generate-m3u', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({host:conn.host,username:conn.username,password:conn.password,streams}) });
+    if (!res.ok) throw new Error('Server error');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href=url; a.download='playlist.m3u'; a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ Downloaded ${streams.length} stream${streams.length!==1?'s':''}`, 'success');
+  } catch (err) { showToast('❌ '+err.message, 'error'); }
+}
+
+// ──────────────────────────────────────────────────────
+//  M3U Editor
+// ──────────────────────────────────────────────────────
+let editorChannels  = [];
+let editorFilter    = '';
+let dragRealIdx     = -1;
+let originalM3UName = '';
+
+function escAttr(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function loadM3UFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  originalM3UName = file.name;
+
+  // Show loading state on the button
+  const btn = input.parentElement;
+  const origText = btn.childNodes[0].textContent.trim();
+  btn.childNodes[0].textContent = ' Loading…';
+
+  try {
+    const content = await file.text();
+    const res     = await fetch('/api/m3u/parse', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    editorChannels = await res.json();
+  } catch (err) {
+    showToast('Failed to parse M3U: ' + err.message, 'error');
+    btn.childNodes[0].textContent = ' ' + origText;
+    input.value = '';
+    return;
+  }
+
+  // Populate editor UI
+  qs('#editor-filename').textContent = file.name;
+  qs('#save-filename').value = file.name.replace(/\.m3u8?$/i, '-edited.m3u');
+  editorFilter = '';
+  qs('#editor-search-inp').value = '';
+
+  // Show editor, hide landing
+  qs('#landing').style.display    = 'none';
+  qs('#m3u-editor').style.display = 'flex';
+  qs('#m3u-editor').style.flexDirection = 'column';
+
+  renderEditorList();
+  input.value = ''; // reset so same file can be reloaded
+  btn.childNodes[0].textContent = ' ' + origText;
+}
+
+function renderEditorList() {
+  const lower   = editorFilter.toLowerCase();
+  const visible = editorChannels
+    .map((ch, realIdx) => ({ ch, realIdx }))
+    .filter(({ ch }) => !lower || ch.name.toLowerCase().includes(lower) || (ch.group||'').toLowerCase().includes(lower));
+
+  qs('#editor-count').textContent = lower
+    ? `${visible.length.toLocaleString()} of ${editorChannels.length.toLocaleString()} channels`
+    : `${editorChannels.length.toLocaleString()} channels`;
+
+  if (!visible.length) {
+    qs('#editor-body').innerHTML = '<div style="padding:32px;text-align:center;color:var(--muted);">No channels match your search</div>';
+    return;
+  }
+
+  const body = qs('#editor-body');
+  body.innerHTML = visible.map(({ ch, realIdx }) => `
+    <div class="ed-row" draggable="true" data-ridx="${realIdx}"
+         ondragstart="edDragStart(event,${realIdx})"
+         ondragover="edDragOver(event)"
+         ondragleave="edDragLeave(event)"
+         ondrop="edDrop(event,${realIdx})"
+         ondragend="edDragEnd(event)">
+      <span class="drag-handle" title="Drag to reorder">⠿</span>
+      <input class="ch-num-inp" type="text" placeholder="#" title="Channel number"
+             onchange="editorChannels[${realIdx}].ch_num=this.value.trim()">
+      <img class="ch-logo" src="${escAttr(ch.tvg_logo)}" loading="lazy"
+           onerror="this.style.visibility='hidden'">
+      <input class="ch-name-inp" type="text" title="Edit name"
+             onchange="editorChannels[${realIdx}].name=this.value;editorChannels[${realIdx}].tvg_name=this.value">
+      <span class="ch-group-lbl"></span>
+      <button class="ch-del-btn" onclick="deleteChannel(${realIdx})" title="Delete channel">✕</button>
+    </div>`).join('');
+
+  // Set input values and group labels directly via JS to avoid HTML attribute encoding issues
+  body.querySelectorAll('.ed-row').forEach((row, i) => {
+    const { ch } = visible[i];
+    row.querySelector('.ch-num-inp').value  = ch.ch_num || '';
+    row.querySelector('.ch-name-inp').value = ch.name   || ch.tvg_name || '';
+    const grp = row.querySelector('.ch-group-lbl');
+    grp.textContent = ch.group || '';
+    grp.title       = ch.group || '';
+  });
+}
+
+function filterEditor(val) {
+  editorFilter = val;
+  renderEditorList();
+}
+
+function clearEditorSearch() {
+  editorFilter = '';
+  qs('#editor-search-inp').value = '';
+  renderEditorList();
+}
+
+function deleteChannel(realIdx) {
+  editorChannels.splice(realIdx, 1);
+  renderEditorList();
+}
+
+// ── Drag and drop ─────────────────────────────────────
+function edDragStart(event, realIdx) {
+  dragRealIdx = realIdx;
+  event.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => { const r = event.target.closest('.ed-row'); if (r) r.classList.add('dragging'); }, 0);
+}
+
+function edDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const row = event.target.closest('.ed-row');
+  if (row) row.classList.add('drag-over');
+}
+
+function edDragLeave(event) {
+  const row = event.target.closest('.ed-row');
+  if (row) row.classList.remove('drag-over');
+}
+
+function edDragEnd(event) {
+  document.querySelectorAll('.ed-row').forEach(r => r.classList.remove('dragging','drag-over'));
+  dragRealIdx = -1;
+}
+
+function edDrop(event, targetRealIdx) {
+  event.preventDefault();
+  if (dragRealIdx === -1 || dragRealIdx === targetRealIdx) return;
+
+  const [item] = editorChannels.splice(dragRealIdx, 1);
+  // After removing the item, the target index shifts if item was before it
+  const insertAt = dragRealIdx < targetRealIdx ? targetRealIdx - 1 : targetRealIdx;
+  editorChannels.splice(insertAt, 0, item);
+
+  dragRealIdx = -1;
+  renderEditorList();
+}
+
+// ── Auto-number ───────────────────────────────────────
+function autoNumber() {
+  // Number channels in their current full-list order, starting from 1
+  editorChannels.forEach((ch, i) => { ch.ch_num = String(i + 1); });
+  renderEditorList();
+  showToast(`Numbered ${editorChannels.length} channels`, 'success');
+}
+
+// ── Save ──────────────────────────────────────────────
+async function saveM3U() {
+  if (!editorChannels.length) return;
+  const filename = (qs('#save-filename').value || 'playlist-edited.m3u').trim();
+  const btn = qs('#m3u-editor .btn-success');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/m3u/export', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channels: editorChannels, filename })
+    });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    showToast(`✅ Saved ${editorChannels.length.toLocaleString()} channels as ${filename}`, 'success');
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Save M3U';
+  }
+}
+
+function closeEditor() {
+  qs('#m3u-editor').style.display = 'none';
+  qs('#landing').style.display    = 'block';
+  editorChannels = []; editorFilter = '';
+}
+
+// ──────────────────────────────────────────────────────
+//  Init
+// ──────────────────────────────────────────────────────
+loadLibraryCards();
+
+['inp-host','inp-user','inp-pass'].forEach(id => {
+  document.getElementById(id)?.addEventListener('keydown', e => { if (e.key==='Enter') connect(); });
+});
+</script>
+</body>
+</html>
