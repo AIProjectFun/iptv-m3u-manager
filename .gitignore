@@ -1,5 +1,9 @@
 node_modules/
+
+# Exclude library cache files and lock file but keep package.json
 *.json
 !package.json
+
+# Exclude personal M3U files
 *.m3u
 *.m3u8
